@@ -36,12 +36,20 @@ function renderTable() {
   tbody.innerHTML = '';
   const today = new Date().toISOString().split('T')[0];
 
+  let totalPaid = 0;
+  let totalDue = 0;
+
   loans.forEach((loan, index) => {
     const daysLeft = daysDifference(loan.emiDate);
     const tr = document.createElement('tr');
 
-    if(loan.paid) tr.classList.add('paid-row');
-    else if(daysLeft < 0) tr.classList.add('due-row');
+    if(loan.paid) {
+      tr.classList.add('paid-row');
+      totalPaid += parseFloat(loan.amount);
+    } else {
+      if(daysLeft < 0) tr.classList.add('due-row');
+      totalDue += parseFloat(loan.amount);
+    }
 
     tr.innerHTML = `
       <td>${loan.name}</td>
@@ -62,7 +70,19 @@ function renderTable() {
       showToast(`${loan.name} EMI due in ${daysLeft} day(s)`);
     }
   });
+
+  // Add total row
+  const totalRow = document.createElement('tr');
+  totalRow.classList.add('table-secondary');
+  totalRow.innerHTML = `
+    <td colspan="1"><strong>Totals</strong></td>
+    <td><strong>Paid: ${totalPaid.toFixed(2)}</strong></td>
+    <td><strong>Due: ${totalDue.toFixed(2)}</strong></td>
+    <td colspan="3"></td>
+  `;
+  tbody.appendChild(totalRow);
 }
+
 
 // Add / Edit Loan
 document.getElementById('loanForm').addEventListener('submit', function(e){
