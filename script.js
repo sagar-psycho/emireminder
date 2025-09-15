@@ -39,6 +39,9 @@ function renderTable() {
   let totalPaid = 0;
   let totalDue = 0;
 
+  // Sort loans by EMI date (nearest due first)
+  loans.sort((a, b) => new Date(a.emiDate) - new Date(b.emiDate));
+
   loans.forEach((loan, index) => {
     const daysLeft = daysDifference(loan.emiDate);
     const tr = document.createElement('tr');
@@ -82,7 +85,6 @@ function renderTable() {
   `;
   tbody.appendChild(totalRow);
 }
-
 
 // Add / Edit Loan
 document.getElementById('loanForm').addEventListener('submit', function(e){
