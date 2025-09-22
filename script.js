@@ -39,8 +39,13 @@ function renderTable() {
   let totalPaid = 0;
   let totalDue = 0;
 
-  // Sort loans by EMI date (nearest due first)
-  loans.sort((a, b) => new Date(a.emiDate) - new Date(b.emiDate));
+  // Sort loans: unpaid first (by EMI date), then paid
+  loans.sort((a, b) => {
+    if (a.paid === b.paid) {
+      return new Date(a.emiDate) - new Date(b.emiDate);
+    }
+    return a.paid ? 1 : -1; // unpaid (-1) before paid (1)
+  });
 
   loans.forEach((loan, index) => {
     const daysLeft = daysDifference(loan.emiDate);
@@ -74,7 +79,7 @@ function renderTable() {
     }
   });
 
-  // Add total row
+  // Add total row at the bottom
   const totalRow = document.createElement('tr');
   totalRow.classList.add('table-secondary');
   totalRow.innerHTML = `
