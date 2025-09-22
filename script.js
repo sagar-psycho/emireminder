@@ -1,7 +1,8 @@
 let loans = [];
 let editIndex = null;
 let actionIndex = null;
-let actionType = ''; // "delete" or "paid"
+let actionType = ''; 
+let isSmartView = false; 
 
 // Load loans from localStorage
 function loadLoans(){
@@ -30,11 +31,17 @@ function showToast(message){
   toastEl.show();
 }
 
-// Render table
+// Toggle Smart View
+document.getElementById('smartViewBtn').addEventListener('click', function(){
+  isSmartView = !isSmartView;
+  this.textContent = isSmartView ? "Normal View" : "Smart View";
+  renderTable();
+});
+
+// Render UI (table or cards)
 function renderTable() {
-  const tbody = document.querySelector('#loanTable tbody');
-  tbody.innerHTML = '';
-  const today = new Date().toISOString().split('T')[0];
+  const wrapper = document.getElementById('viewWrapper');
+  wrapper.innerHTML = '';
 
   let totalPaid = 0;
   let totalDue = 0;
@@ -44,51 +51,120 @@ function renderTable() {
     if (a.paid === b.paid) {
       return new Date(a.emiDate) - new Date(b.emiDate);
     }
-    return a.paid ? 1 : -1; // unpaid (-1) before paid (1)
+    return a.paid ? 1 : -1; 
   });
 
-  loans.forEach((loan, index) => {
-    const daysLeft = daysDifference(loan.emiDate);
-    const tr = document.createElement('tr');
+  if(isSmartView){
+    // Smart View (cards)
+    const container = document.createElement('div');
+    container.className = "row g-3";
 
-    if(loan.paid) {
-      tr.classList.add('paid-row');
-      totalPaid += parseFloat(loan.amount);
-    } else {
-      if(daysLeft < 0) tr.classList.add('due-row');
-      totalDue += parseFloat(loan.amount);
-    }
+    loans.forEach((loan, index) => {
+      const daysLeft = daysDifference(loan.emiDate);
+      if(loan.paid) totalPaid += parseFloat(loan.amount);
+      else totalDue += parseFloat(loan.amount);
 
-    tr.innerHTML = `
-      <td>${loan.name}</td>
-      <td>${loan.amount}</td>
-      <td>${loan.emiDate}</td>
-      <td>${daysLeft < 0 ? 'Overdue' : daysLeft + ' day(s)'}</td>
-      <td>${loan.paid ? 'Paid' : 'Pending'}</td>
-      <td>
-        <button class="btn btn-success btn-sm me-1" onclick="markPaid(${index})" ${loan.paid ? 'disabled' : ''}>Paid</button>
-        <button class="btn btn-warning btn-sm me-1" onclick="editLoan(${index})">Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="confirmAction(${index}, 'delete')">Delete</button>
-      </td>
+      const card = document.createElement('div');
+      card.className = "col-md-4";
+      card.innerHTML = `
+        <div class="card ${loan.paid ? 'bg-success text-white' : daysLeft < 0 ? 'bg-danger text-white' : 'bg-light'}">
+          <div class="card-body">
+            <h5 class="card-title">${loan.name}</h5>
+            <p class="card-text">Amount: ₹${loan.amount}</p>
+            <p class="card-text">Date: ${loan.emiDate}</p>
+            <p class="card-text">Status: ${
+              loan.paid 
+                ? `✅ Paid on ${loan.paidDate}` 
+                : daysLeft < 0 
+                  ? '❌ Overdue' 
+                  : daysLeft + ' day(s) left'
+            }</p>
+            <div class="d-flex justify-content-between">
+              <button class="btn btn-success btn-sm" onclick="markPaid(${index})" ${loan.paid ? 'disabled' : ''}>Paid</button>
+              <button class="btn btn-warning btn-sm" onclick="editLoan(${index})">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="confirmAction(${index}, 'delete')">Delete</button>
+            </div>
+          </div>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    // Totals card
+    const totalCard = document.createElement('div');
+    totalCard.className = "col-md-12";
+    totalCard.innerHTML = `
+      <div class="card border-secondary">
+        <div class="card-body">
+          <h5 class="card-title">Totals</h5>
+          <p class="card-text">Paid: ₹${totalPaid.toFixed(2)} | Due: ₹${totalDue.toFixed(2)}</p>
+        </div>
+      </div>
     `;
-    tbody.appendChild(tr);
+    container.appendChild(totalCard);
 
-    // Remind 1-3 days before EMI
-    if(!loan.paid && daysLeft >= 0 && daysLeft <= 3){
-      showToast(`${loan.name} EMI due in ${daysLeft} day(s)`);
-    }
-  });
+    wrapper.appendChild(container);
 
-  // Add total row at the bottom
-  const totalRow = document.createElement('tr');
-  totalRow.classList.add('table-secondary');
-  totalRow.innerHTML = `
-    <td colspan="1"><strong>Totals</strong></td>
-    <td><strong>Paid: ${totalPaid.toFixed(2)}</strong></td>
-    <td><strong>Due: ${totalDue.toFixed(2)}</strong></td>
-    <td colspan="3"></td>
-  `;
-  tbody.appendChild(totalRow);
+  } else {
+    // Normal Table View
+    const table = document.createElement('table');
+    table.className = "table table-bordered align-middle";
+    table.id = "loanTable";
+    table.innerHTML = `
+      <thead class="table-light">
+        <tr>
+          <th>Loan</th>
+          <th>Amount</th>
+          <th>EMI Date</th>
+          <th>Countdown</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = table.querySelector('tbody');
+
+    loans.forEach((loan, index) => {
+      const daysLeft = daysDifference(loan.emiDate);
+      const tr = document.createElement('tr');
+
+      if(loan.paid) {
+        tr.classList.add('paid-row');
+        totalPaid += parseFloat(loan.amount);
+      } else {
+        if(daysLeft < 0) tr.classList.add('due-row');
+        totalDue += parseFloat(loan.amount);
+      }
+
+      tr.innerHTML = `
+        <td>${loan.name}</td>
+        <td>${loan.amount}</td>
+        <td>${loan.emiDate}</td>
+        <td>${loan.paid ? `Paid on ${loan.paidDate}` : (daysLeft < 0 ? 'Overdue' : daysLeft + ' day(s)')}</td>
+        <td>${loan.paid ? 'Paid' : 'Pending'}</td>
+        <td>
+          <button class="btn btn-success btn-sm me-1" onclick="markPaid(${index})" ${loan.paid ? 'disabled' : ''}>Paid</button>
+          <button class="btn btn-warning btn-sm me-1" onclick="editLoan(${index})">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmAction(${index}, 'delete')">Delete</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Totals row
+    const totalRow = document.createElement('tr');
+    totalRow.classList.add('table-secondary');
+    totalRow.innerHTML = `
+      <td><strong>Totals</strong></td>
+      <td><strong>Paid: ${totalPaid.toFixed(2)}</strong></td>
+      <td><strong>Due: ${totalDue.toFixed(2)}</strong></td>
+      <td colspan="3"></td>
+    `;
+    tbody.appendChild(totalRow);
+
+    wrapper.appendChild(table);
+  }
 }
 
 // Add / Edit Loan
@@ -103,7 +179,6 @@ document.getElementById('loanForm').addEventListener('submit', function(e){
     return;
   }
 
-  // Validate EMI date is not in the past
   const today = new Date().toISOString().split('T')[0];
   if(emiDate < today){
     showToast("EMI date cannot be in the past!");
@@ -151,6 +226,7 @@ document.getElementById('confirmBtn').addEventListener('click', function(){
     loans.splice(actionIndex, 1);
   } else if(actionType === 'paid'){
     loans[actionIndex].paid = true;
+    loans[actionIndex].paidDate = new Date().toISOString().split('T')[0]; // save paid date
   }
   saveLoans();
   renderTable();
@@ -163,12 +239,10 @@ function markPaid(index){
   confirmAction(index, 'paid');
 }
 
-// Disable past dates in date picker
+// Disable past dates
 document.getElementById('emiDate').setAttribute('min', new Date().toISOString().split('T')[0]);
 
 // Initial load
 loadLoans();
 renderTable();
-
-// Auto-update table every minute
 setInterval(renderTable, 60000);
